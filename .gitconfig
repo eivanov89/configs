@@ -1,0 +1,29 @@
+[user]
+	name = Eugene Ivanov
+	email = Eugene.Ivanov@itiviti.com
+[color]
+ branch = auto
+ diff = auto
+ status = auto
+[push] 
+        default = tracking
+[alias]
+        up = !git pull -ff && git submodule update --init
+        sw = "!git_switch() { git checkout \"$@\" && git submodule update --init; }; git_switch"
+        co = checkout
+        br = branch
+        ci = commit
+        st = status
+        last = log -1 HEAD
+        cdiff = diff --check
+        ca = commit --amend
+	d = difftool
+        contains = !sh -c 'git branch -a --contains $1' -
+[core]
+	excludesfile = /home/eiva/.gitignore_global
+[diff]
+	tool = vimdiff
+[difftool]
+	prompt = false
+[merge]
+        #ff = false

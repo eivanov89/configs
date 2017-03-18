@@ -1,0 +1,157 @@
+import os
+import subprocess
+from clang_helpers import PrepareClangFlags
+
+# Compilation flags required to make autocompleteion working.
+flags = [
+'-m64',
+'-fPIC',
+'-Wno-long-long',
+'-Wno-variadic-macros',
+'-fexceptions',
+'-DNDEBUG',
+'-DUSE_CLANG_COMPLETER',
+# THIS IS IMPORTANT! Without a "-std=<something>" flag, clang won't know which
+# language to use when compiling headers. So it will guess. Badly. So C++
+# headers will be compiled as C headers. You don't want that so ALWAYS specify
+# a "-std=<something>".
+# For a C project, you would set this to something like 'c99' instead of
+# 'c++11'.
+'-std=c++14',
+# ...and the same thing goes for the magic -x option which specifies the
+# language that the files to be compiled are written in. This is mostly
+# relevant for c++ headers.
+# For a C project, you would set this to 'c' instead of 'c++'.
+'-x',
+'c++',
+'-I',
+'.',
+# Here we specify include dirs. It supports both absolute and relative
+# paths. In case of relative path, script detects git repository
+# root and uses it as a prefix for the specified path. Absolute
+# paths are used as they are.
+# Feel free to add any paths you need
+'-I/usr/include/c++/4.2.1',
+'-Isrc/share/compat/headers',
+'-Isrc/libraries/trade_persistence/headers/',
+#'-Isrc/libraries/strategy/headers/',
+#'-Isrc/libraries/strategy/headers/fix/',
+#'-Isrc/libraries/strategy/headers/instrument/',
+#'-Isrc/libraries/strategy/headers/limit/',
+#'-Isrc/libraries/strategy/headers/market_data/',
+#'-Isrc/libraries/strategy/headers/parameter/',
+#'-Isrc/libraries/strategy/headers/pricing/',
+#'-Isrc/libraries/strategy/headers/quoting/',
+#'-Isrc/libraries/strategy/headers/rankings/',
+#'-Isrc/libraries/strategy/headers/stream/',
+#'-Isrc/libraries/strategy/headers/stream_filter',
+#'-Isrc/libraries/strategy/headers/stream_throttle',
+#'-Isrc/libraries/strategy/headers/svi',
+#'-Isrc/libraries/strategy/headers/type',
+#'-Isrc/libraries/strategy/headers/type/cfi_attributes',
+#'-Isrc/libraries/strategy/headers/validation',
+#'-Isrc/libraries/strategy/headers/volatility',
+#'-Isrc/libraries/calendar/headers',
+'-Isrc/libraries/mic/headers',
+#'-Isrc/libraries/types/headers/types/little_endian',
+#'-Isrc/libraries/types/headers/types/little_endian/ieee754',
+'-Isrc/libraries/types/headers',
+'-Isrc/libraries/error/headers',
+'-Isrc/libraries/timezone/headers',
+'-Isrc/libraries/debug/headers',
+'-Isrc/libraries/util/headers',
+'-Isrc/libraries/xmlx/headers',
+'-Isrc/libraries/combination/headers',
+'-Isrc/libraries/cpphelper/headers',
+'-Isrc/libraries/csv/headers',
+'-Isrc/libraries/log/headers',
+'-Isrc/libraries/filter/headers',
+'-Isrc/libraries/ustring/headers',
+'-Isrc/libraries/protocol/headers',
+'-Isrc/libraries/error_stack/headers',
+'-Isrc/libraries/message/headers',
+'-Isrc/libraries/transport/headers',
+'-Isrc/libraries/TProactor/headers',
+'-Isrc/libraries/bonjour/headers',
+'-Isrc/libraries/config/headers',
+'-Isrc/libraries/protocol_impl/headers',
+'-Isrc/libraries/audit/headers',
+'-Isrc/libraries/storage/headers',
+'-Isrc/libraries/umem/headers/umem',
+'-Isrc/libraries/umem/headers',
+'-Isrc/libraries/log_backend/headers',
+'-Isrc/libraries/qos/headers',
+'-Isrc/libraries/service_status',
+'-Isrc/libraries/admin/core/headers',
+'-Isrc/libraries/stlport4-alloc/headers',
+'-Isrc/libraries/subscription/headers',
+'-Isrc/libraries/rbac/core/headers',
+'-Isrc/libraries/svi/headers',
+'-Isrc/libraries/user/headers',
+'-Isrc/libraries/venue/headers',
+'-Ibuild.x86_64-unknown-linux/include64',
+'-Ibuild.x86_64-unknown-linux/include64/ace-5.7',
+'-Ibuild.x86_64-unknown-linux/include64/google',
+'-Ibuild.x86_64-unknown-linux/include64/gtest',
+'-Iperf.x86_64-unknown-linux/include64',
+'-Iperf.x86_64-unknown-linux/include64/ace-5.7',
+'-Iperf.x86_64-unknown-linux/include64/google',
+'-Iperf.x86_64-unknown-linux/include64/gtest',
+]
+
+
+def DirectoryOfThisScript():
+  return os.path.dirname( os.path.abspath( __file__ ) )
+
+
+def FindRepositoryRoot(filename):
+  try:
+    directory = os.path.dirname( os.path.abspath( filename ) )
+    root = subprocess.check_output(["git", "rev-parse", "--show-toplevel"], cwd=directory)
+    root = root[:-1] # chomp
+    if os.path.isdir(root):
+      return root
+  except:
+    pass
+  return ""
+
+
+def MakeRelativePathsInFlagsAbsolute( flags, working_directory ):
+  if not working_directory:
+    return flags
+  new_flags = []
+  make_next_absolute = False
+  path_flags = [ '-isystem', '-I', '-iquote', '--sysroot=' ]
+  for flag in flags:
+    new_flag = flag
+
+    if make_next_absolute:
+      make_next_absolute = False
+      if not flag.startswith( '/' ):
+        new_flag = os.path.join( working_directory, flag )
+
+    for path_flag in path_flags:
+      if flag == path_flag:
+        make_next_absolute = True
+        break
+
+      if flag.startswith( path_flag ):
+        path = flag[ len( path_flag ): ]
+        new_flag = path_flag + os.path.join( working_directory, path )
+        break
+
+    if new_flag:
+      new_flags.append( new_flag )
+  return new_flags
+
+
+def FlagsForFile( filename ):
+  relative_to = FindRepositoryRoot( filename )
+  if not relative_to:
+    relative_to = DirectoryOfThisScript()
+  final_flags = MakeRelativePathsInFlagsAbsolute( flags, relative_to )
+
+  return {
+    'flags': final_flags,
+    'do_cache': True
+  }
